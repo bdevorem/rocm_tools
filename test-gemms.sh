@@ -1,0 +1,160 @@
+#!/bin/bash
+
+#set -x
+
+LOGFILE=./mlir.perf.$1
+LOGSUMMARYFILE=./mlir_summary.perf.$1
+DRIVERPATH="/opt/rocm/bin/migraphx-driver"
+
+export HIP_FORCE_DEV_KERNARG=1
+
+echo "###########################################" >>  $LOGFILE
+echo "New Run $(pwd)" >>  $LOGFILE
+date >> $LOGFILE
+echo "GPU: $(rocminfo |grep -o -m 1 'gfx.*')" >> $LOGFILE
+echo "MIGX: $($DRIVERPATH --version)" >> $LOGFILE
+echo "MIGX Commit: $(git -C /workspace/AMDMIGraphX log -n 1  --pretty=oneline)" >> $LOGFILE
+ls -l /etc/alternatives |grep "rocm ->" >> $LOGFILE
+echo "###########################################" >>  $LOGFILE
+
+COUNTER=0
+
+function run_test {
+    title=$1
+    env_vars=$2
+    m=$3
+    k1=$4
+    n1k2=$5
+    n2=$6
+    batch=$7
+    datatype=$8
+    modelname="gemmtests/testkernel_""$m""_""$k1""_""$n1k2""_""$n2"".py"
+    display_type=${datatype:-'--fp32'}
+
+    sed "s/\\\$m\\\$/$m/g ; s/\\\$k1\\\$/$k1/g ; s/\\\$n1k2\\\$/$n1k2/g ; s/\\\$n2\\\$/$n2/g" test_kernel.py > "$modelname"
+    for i in {1..40} ; do
+        (( COUNTER++ ))
+        echo "TEST: $COUNTER, $title $env_vars m=$m k1=$k1 n1k2=$n1k2 n2=$n2 batch=$b datatype=$display_type" >> $LOGFILE
+    
+        ( if [ -n "$env_vars" ]; then export $env_vars; fi; time $DRIVERPATH perf "$modelname" $datatype --batch $batch ) 2>&1 |tee raw_perf.txt
+        cat raw_perf.txt |sed -n '/Summary:/,$p'  >>  $LOGFILE
+    
+        runtime=$(tail raw_perf.txt |grep "real"|cut -f2- )
+        totaltime=$(grep 'Total time:' raw_perf.txt|cut -d ' ' -f 3 |cut -d 'm' -f 1)
+        echo "TEST: $COUNTER, $runtime, $title, $modelname, $display_type, $batch, $totaltime" >> $LOGSUMMARYFILE
+    done
+}
+
+# MIGRAPHX_MLIR_TRACE=1 MIGRAPHX_TRACE_BENCHMARKING=2
+MIGRAPHX_PROBLEM_CACHE=/workspace/perf.json
+
+while read m k1 n1k2 n2
+do
+
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 1 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 1
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 16 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 32 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 32
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 64 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 64
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 128 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 128
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 256 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 256
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 512 --fp16
+    run_test "DEFAULT" "" "$m" "$k1" "$n1k2" "$n2" 512
+
+# m      k1       n1k2     n2
+done <<TESTLIST
+10       20       30       40
+100      20       300      400
+8192     128      8192     128
+16384    128      16384    128
+2        2        2        2
+4        4        4        4
+8        8        8        8
+16       16       16       16
+32       32       32       32
+64       64       64       64
+128      128      128      128
+256      256      256      256
+512      512      512      512
+1024     1024     1024     1024
+2048     2048     2048     2048
+4096     4096     4096     4096
+8192     8192     8192     8192
+16384    16384    16384    16384
+32768    32768    32768    32768
+65536    65536    65536    65536
+2        4        8        16
+4        8        16       32
+8        16       32       64
+16       32       64       128
+32       64       128      256
+64       128      256      512
+128      256      512      1024
+256      512      1024     2048
+512      1024     2048     4096
+1024     2048     4096     8192
+2048     4096     8192     16384
+4096     8192     16384    32768
+8192     16384    32768    65536
+1024     128      1024     128
+2048     128      2048     128
+4096     128      4096     128
+8192     128      8192     128
+16384    128      16384    128
+32768    128      32768    128
+65536    128      65536    128
+128      1024     128      1024
+128      2048     128      2048
+128      4096     128      4096
+128      8192     128      8192
+128      16384    128      16384
+128      32768    128      32768
+128      65536    128      65536
+1024     64       1024     64
+2048     64       2048     64
+4096     64       4096     64
+8192     64       8192     64
+16384    64       16384    64
+32768    64       32768    64
+65536    64       65536    64
+64       1024     64       1024
+64       2048     64       2048
+64       4096     64       4096
+64       8192     64       8192
+64       16384    64       16384
+64       32768    64       32768
+64       65536    64       65536
+1024     256      1024     256
+2048     256      2048     256
+4096     256      4096     256
+8192     256      8192     256
+16384    256      16384    256
+32768    256      32768    256
+65536    256      65536    256
+256      1024     256      1024
+256      2048     256      2048
+256      4096     256      4096
+256      8192     256      8192
+256      16384    256      16384
+256      32768    256      32768
+256      65536    256      65536
+1024     512      1024     512
+2048     512      2048     512
+4096     512      4096     512
+8192     512      8192     512
+16384    512      16384    512
+32768    512      32768    512
+65536    512      65536    512
+512      1024     512      1024
+512      2048     512      2048
+512      4096     512      4096
+512      8192     512      8192
+512      16384    512      16384
+512      32768    512      32768
+512      65536    512      65536
+TESTLIST
