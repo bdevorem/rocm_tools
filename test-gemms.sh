@@ -33,17 +33,15 @@ function run_test {
     display_type=${datatype:-'--fp32'}
 
     sed "s/\\\$m\\\$/$m/g ; s/\\\$k1\\\$/$k1/g ; s/\\\$n1k2\\\$/$n1k2/g ; s/\\\$n2\\\$/$n2/g" test_kernel.py > "$modelname"
-    for i in {1..40} ; do
-        (( COUNTER++ ))
-        echo "TEST: $COUNTER, $title $env_vars m=$m k1=$k1 n1k2=$n1k2 n2=$n2 batch=$b datatype=$display_type" >> $LOGFILE
+    (( COUNTER++ ))
+    echo "TEST: $COUNTER, $title $env_vars m=$m k1=$k1 n1k2=$n1k2 n2=$n2 batch=$b datatype=$display_type" >> $LOGFILE
     
-        ( if [ -n "$env_vars" ]; then export $env_vars; fi; time $DRIVERPATH perf "$modelname" $datatype --batch $batch ) 2>&1 |tee raw_perf.txt
-        cat raw_perf.txt |sed -n '/Summary:/,$p'  >>  $LOGFILE
+    ( if [ -n "$env_vars" ]; then export $env_vars; fi; time $DRIVERPATH perf "$modelname" $datatype --batch $batch ) 2>&1 |tee raw_perf.txt
+    cat raw_perf.txt |sed -n '/Summary:/,$p'  >>  $LOGFILE
     
-        runtime=$(tail raw_perf.txt |grep "real"|cut -f2- )
-        totaltime=$(grep 'Total time:' raw_perf.txt|cut -d ' ' -f 3 |cut -d 'm' -f 1)
-        echo "TEST: $COUNTER, $runtime, $title, $modelname, $display_type, $batch, $totaltime" >> $LOGSUMMARYFILE
-    done
+    runtime=$(tail raw_perf.txt |grep "real"|cut -f2- )
+    totaltime=$(grep 'Total time:' raw_perf.txt|cut -d ' ' -f 3 |cut -d 'm' -f 1)
+    echo "TEST: $COUNTER, $runtime, $title, $modelname, $display_type, $batch, $totaltime" >> $LOGSUMMARYFILE
 }
 
 # MIGRAPHX_MLIR_TRACE=1 MIGRAPHX_TRACE_BENCHMARKING=2
