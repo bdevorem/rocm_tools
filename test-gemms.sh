@@ -42,7 +42,11 @@ function run_test {
     
     runtime=$(tail raw_perf.txt |grep "real"|cut -f2- )
     totaltime=$(grep 'Total time:' raw_perf.txt|cut -d ' ' -f 3 |cut -d 'm' -f 1)
-    echo "TEST: $COUNTER, $runtime, $title, $modelname, $display_type, $batch, $totaltime" >> $LOGSUMMARYFILE
+    percentiles=$(grep 'Percentiles (90%, 95%, 99%):' raw_perf.txt|cut -d '(' -f 2| cut -d ')' -f1| tr ',' ' ')
+    insttime=$(grep 'Total instructions time:' raw_perf.txt|cut -d ':' -f 2 | tr ',' ' ')
+    overheadtime=$(grep 'Overhead time:' raw_perf.txt|cut -d ':' -f 2 | tr ',' ' ')
+    overhead=$(grep 'Overhead:' raw_perf.txt|cut -d ':' -f 2 | tr ',' ' ')
+    echo "TEST: $COUNTER, $runtime, $title, $modelname, $display_type, $batch, $totaltime, $percentiles, $insttime, $overheadtime, $overhead" >> $LOGSUMMARYFILE
 }
 
 # MIGRAPHX_MLIR_TRACE=1 MIGRAPHX_TRACE_BENCHMARKING=2
