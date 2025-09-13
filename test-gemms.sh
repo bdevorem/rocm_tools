@@ -4,7 +4,8 @@
 
 LOGFILE=./mlir.perf.$1
 LOGSUMMARYFILE=./mlir_summary.perf.$1
-DRIVERPATH="/opt/rocm/bin/migraphx-driver"
+#DRIVERPATH="/opt/rocm/bin/migraphx-driver"
+DRIVERPATH="./build/bin/migraphx-driver"
 
 export HIP_FORCE_DEV_KERNARG=1
 
